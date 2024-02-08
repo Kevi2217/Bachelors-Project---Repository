@@ -1,5 +1,5 @@
 # Bachelors-Project---Repository
-This is the repository for the Bachelor's project
+This is the repository for the AAU Bachelor's project about Statistical Analysis and Forecasting of Electricity Prices
 
 ****
 ## Group members:
