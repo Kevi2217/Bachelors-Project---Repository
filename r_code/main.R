@@ -31,13 +31,20 @@ elspotprices_19_24_data <- read_excel("elspotprices_19-24.xlsx")
 # esp_data <- esp_22_data %>%
 #   rbind(esp_23_data)
 
+
 # Combines data
 esp <- elspotprices_14_19_data %>% 
   rbind(elspotprices_19_24_data) %>%
   rename_all(tolower)
 
+esp <- elspotprices_14_19 %>% 
+  rbind(elspotprices_19_24) %>%
+  rename_all(tolower)
+
 # source("seasonal_plots.R")
 
+esp <- elspotprices_19_24 %>%
+  rename_all(tolower)
 
 esp_daily <- esp %>%
   dplyr::mutate(hourdk = as.Date(hourdk)) %>%
@@ -45,7 +52,7 @@ esp_daily <- esp %>%
   dplyr::summarise(daily_mean_spotpricedkk = round(mean(spotpricedkk), 2),
                    daily_mean_spotpriceeur = round(mean(spotpriceeur), 2)) %>% 
   dplyr::filter(pricearea == "DK1")
-  # dplyr::filter(year(hourdk) == "2015")
+  #dplyr::filter(year(hourdk) == 2020 & 2021 & 2022 & 2023 & 2024)
 
 
 # Daily price plot for all time
@@ -95,14 +102,14 @@ ggPacf(esp_ts, main = "PACF Plot")
 
 
 
-
 # Fit ARIMA model
 # CREATES arima model
-# arima_model <- arima(esp_ts, order = c(2, 1, 2))
-# 
-# ts.plot(esp_ts, main = "Daily 2015 model test")
-# arima_fit <- esp_ts - residuals(arima_model)
-# points(arima_fit, type = "l", col = "red", lty = 2)
+arima_model <- arima(esp_ts, order = c(2, 1, 2))
+
+ts.plot(esp_ts, main = "Daily 2015 model test")
+arima_fit <- esp_ts - residuals(arima_model)
+points(arima_fit, type = "l", col = "red", lty = 2)
+
 
 # Creates AR model
 # par(mfrow=c(2,1))
