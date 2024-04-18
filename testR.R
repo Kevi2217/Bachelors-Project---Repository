@@ -1,36 +1,45 @@
 library(dplyr)
 library(tidyr)
 library(lubridate)
+library(tseries)
 
-esp <- elspotprices_19_24 %>%
+elspotprices_19_24 <- elspotprices_19_24 %>% 
   rename_all(tolower)
 
-esp_daily <- esp %>%
+esp <- elspotprices_19_24 %>%
   dplyr::mutate(hourdk = as.Date(hourdk)) %>%
   dplyr::group_by(pricearea, hourdk) %>%
   dplyr::summarise(DAP_DKK = round(mean(spotpricedkk), 2),
                    DAP_EUR = round(mean(spotpriceeur), 2)) %>% 
   dplyr::filter(pricearea == "DK1")
 
-# Converting data
-delu <- esp_daily %>%
-  mutate(ddmmyy = dmy(ddmmyy)) %>%
-  mutate(DAP_return = c(NA, diff(DAP) / lag(DAP)) * 100) %>%
-  mutate(DAP_delta = diff(DAP)) %>%
-  na.omit() %>%
-  select(-ddmmyy)
+esp <- esp %>% 
+  ungroup() %>% 
+  dplyr::select(-DAP_DKK,-pricearea) %>%
+  dplyr::mutate(DAP_diff = c(NA,diff(DAP_EUR))) %>%
+  na.omit()
 
-# Contains the prices of the exogenuous variables
-exp <- raw_csv_prices %>%
-  mutate(ddmmyy = dmy(ddmmyy)) %>%
-  select(-ddmmyy)
+# Test with log-differenced prices
+test <- esp %>%
+  mutate(DAP_EUR)
+  # mutate(DAP_log = c(NA,diff(log(esp$DAP_EUR)))) %>% 
+  # na.omit()
+
+ggplot(test, aes(x= hourdk, y= DAP_log)) +
+  geom_line() +
+  labs(title = "DAILY Price (ALL TIME)", x = "Time", y = "Daily Price") +
+  theme_minimal()
+  
+
+# Transforming the data, such that we can log
+
 
 # Data analysis
 summary(esp_daily$DAP_EUR)
 adf.test(esp_daily$DAP_EUR)
 acf(esp_daily$DAP_EUR, lag.max = 50, main = "ACF of Electricity Price Differences in DE-LU BZN in October 2019- March 2022")
 pacf(esp_daily$DAP_EUR, lag.max = 50, main = "PACF of Electricity Price Differences in DE-LU BZN in October 2019- March 2022")
-decomposition <- decompose(ts(esp_daily$DAP_EUR, frequency = 30), type = "additive")
+decomposition <- decompose(ts(esp$DAP_EUR, frequency = 30), type = "additive")
 plot(decomposition)
 
 # Splitting the data
