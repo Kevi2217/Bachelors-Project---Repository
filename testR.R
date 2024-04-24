@@ -2,6 +2,8 @@ library(dplyr)
 library(tidyr)
 library(lubridate)
 library(tseries)
+library(MASS)
+library(forecast)
 
 elspotprices_19_24 <- elspotprices_19_24 %>% 
   rename_all(tolower)
@@ -19,28 +21,31 @@ esp <- esp %>%
   dplyr::mutate(DAP_diff = c(NA,diff(DAP_EUR))) %>%
   na.omit()
 
+
+
 # Test with log-differenced prices
-test <- esp %>%
-  mutate(DAP_EUR)
-  # mutate(DAP_log = c(NA,diff(log(esp$DAP_EUR)))) %>% 
+# test <- esp %>%
+#   mutate(DAP_EUR = DAP_EUR + abs(min(DAP_EUR)) + 10000) %>%
+#   mutate(DAP_log_EUR = log(DAP_EUR)) %>%
+#   mutate(DAP_log_diff = c(NA,diff(DAP_log_EUR))) %>%
+#   na.omit()
+  # mutate(DAP_log = c(NA,diff(log(esp$DAP_EUR)))) %>%
   # na.omit()
 
-ggplot(test, aes(x= hourdk, y= DAP_log)) +
+
+ggplot(test, aes(x= hourdk, y= DAP_log_EUR)) +
   geom_line() +
   labs(title = "DAILY Price (ALL TIME)", x = "Time", y = "Daily Price") +
   theme_minimal()
-  
-
-# Transforming the data, such that we can log
 
 
 # Data analysis
-summary(esp_daily$DAP_EUR)
-adf.test(esp_daily$DAP_EUR)
-acf(esp_daily$DAP_EUR, lag.max = 50, main = "ACF of Electricity Price Differences in DE-LU BZN in October 2019- March 2022")
-pacf(esp_daily$DAP_EUR, lag.max = 50, main = "PACF of Electricity Price Differences in DE-LU BZN in October 2019- March 2022")
+summary(test$DAP_EUR)
+adf.test(esp$DAP_EUR)
+acf(esp$DAP_EUR, lag.max = 50, main = "ACF of Electricity Price Differences in DE-LU BZN in October 2019- March 2022")
+pacf(esp$DAP_EUR, lag.max = 50, main = "PACF of Electricity Price Differences in DE-LU BZN in October 2019- March 2022")
 decomposition <- decompose(ts(esp$DAP_EUR, frequency = 30), type = "additive")
-plot(decomposition)
+autoplot(decomposition)
 
 # Splitting the data
 size <- round(nrow(delu) * 0.9)
@@ -48,7 +53,7 @@ df <- delu[1:size, ]
 df_test <- delu[(size + 1):nrow(delu), ]
 
 # SARIMAX model construction
-mod <- arima(df$DAP, order = c(1, 1, 2), seasonal = list(order = c(3, 0, 0, 7)),
+mod <- arima(esp$DAP_EUR, order = c(1, 1, 2), seasonal = list(order = c(3, 0, 0, 7)),
              xreg = df[, c('ttf', 'api2', 'CO2', 'Load', 'Coal', 'Gas', 'Oil', 'Hydro', 
                            'Pumped', 'Wind', 'Solar', 'Biofuels', 'Nuclear', 'AT_net', 
                            'BE_net', 'CH_net', 'CZ_net', 'DK1_net', 'DK2_net', 'FR_net', 
