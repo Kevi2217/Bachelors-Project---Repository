@@ -9,15 +9,7 @@ library(lubridate)
 library(stats)
 library(ggfortify)
 library(gridExtra)
-
-# Specify the theme
-theme_options <- theme(
-  plot.title = element_text(size = 14),
-  axis.title.x = element_text(size = 12),
-  axis.title.y = element_text(size = 12),
-  axis.text = element_text(size = 10),
-  legend.title = element_blank(),
-  legend.text = element_text(size = 10))
+library(MASS)
 
 # Read the Excel file
 esp_raw <- read_excel("C:/Users/aranu/Desktop/Elspotprices.xlsx")
@@ -34,13 +26,19 @@ esp <- esp_raw %>%
 esp_ts <- ts(esp$daily_mean_spotpriceeur, frequency = 365, start = 2019)
 
 # Convert to multiple seasonality time series
-esp_msts <- msts(esp_ts, seasonal.periods = c(31, 365))
-
-# Difference the time series
-esp_diff <- diff(esp_msts)
+esp_msts <- msts(esp_ts, seasonal.periods = c(7, 365))
 
 # Decompose the time series with multiple seasonality
 esp_mstl <- mstl(esp_msts, iterate = 50)
+
+# Specify the theme
+theme_options <- theme(
+  plot.title = element_text(size = 14),
+  axis.title.x = element_text(size = 12),
+  axis.title.y = element_text(size = 12),
+  axis.text = element_text(size = 10),
+  legend.title = element_blank(),
+  legend.text = element_text(size = 10))
 
 # Plot the decomposed components
 autoplot(esp_mstl) +
@@ -48,3 +46,8 @@ autoplot(esp_mstl) +
   labs(x = "Time", y = "Daily Mean Spot Price (EUR)") +
   theme_options
 
+# Difference the time series
+esp_diff <- diff(esp_ts)
+
+# Log-transform and difference the time series
+esp_logdiff <- log(esp_ts + abs(5*min(esp_ts))) %>% diff() %>% diff(lag = 7)
