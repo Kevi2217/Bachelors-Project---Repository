@@ -17,10 +17,10 @@ esp_raw <- read_excel("C:/Users/aranu/Desktop/Elspotprices.xlsx")
 # Preprocess the data
 esp <- esp_raw %>%
   rename_all(tolower) %>%
-  select(-c(hourutc,spotpricedkk,pricearea)) %>%
-  mutate(hourdk = as.Date(hourdk)) %>%
-  group_by(hourdk) %>%
-  summarise(daily_mean_spotpriceeur = round(mean(spotpriceeur), 2))
+  dplyr::select(-c(hourutc,spotpricedkk,pricearea)) %>%
+  dplyr::mutate(hourdk = as.Date(hourdk)) %>%
+  dplyr::group_by(hourdk) %>%
+  dplyr::summarise(daily_mean_spotpriceeur = round(mean(spotpriceeur), 2))
 
 # Convert to time series object
 esp_ts <- ts(esp$daily_mean_spotpriceeur, frequency = 365, start = 2019)
@@ -50,4 +50,24 @@ autoplot(esp_mstl) +
 esp_diff <- diff(esp_ts)
 
 # Log-transform and difference the time series
-esp_logdiff <- log(esp_ts + abs(5*min(esp_ts))) %>% diff() %>% diff(lag = 7)
+esp_logdiff <- log(esp_ts + abs(2*min(esp_ts))) %>% diff() %>% diff(lag = 7)
+
+# Box Cox-transform and difference the time series
+lambda <- BoxCox.lambda(esp_ts + abs(2*min(esp_ts)))
+esp_boxcox <- BoxCox(esp_ts + abs(2*min(esp_ts)), lambda) %>% diff() %>% diff(lag = 7)
+
+#Box Cox-transform without seasonal difference
+esp_boxcox0 <- BoxCox(esp_ts + abs(2*min(esp_ts)), lambda) %>% diff()
+
+autoplot(esp_logdiff)
+autoplot(esp_boxcox)
+autoplot(esp_boxcox0)
+
+fit <- auto.arima(esp_boxcox)
+plot(fit)
+autoplot(fit)
+
+fit0 <- auto.arima(esp_boxcox0)
+autoplot(fit0)
+summary(fit0)
+summary(fit)
