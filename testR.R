@@ -4,6 +4,7 @@ library(lubridate)
 library(tseries)
 library(MASS)
 library(forecast)
+library(ggplot2)
 
 elspotprices_19_24 <- elspotprices_19_24 %>% 
   rename_all(tolower)
@@ -22,16 +23,19 @@ esp <- esp %>%
   na.omit()
 
 
-
 # Test with log-differenced prices
-# test <- esp %>%
-#   mutate(DAP_EUR = DAP_EUR + abs(min(DAP_EUR)) + 10000) %>%
-#   mutate(DAP_log_EUR = log(DAP_EUR)) %>%
-#   mutate(DAP_log_diff = c(NA,diff(DAP_log_EUR))) %>%
-#   na.omit()
-  # mutate(DAP_log = c(NA,diff(log(esp$DAP_EUR)))) %>%
-  # na.omit()
+test <- esp %>%
+  mutate(DAP_log_EUR = log(DAP_EUR + 3*abs(min(DAP_EUR)))) %>%
+  mutate(DAP_log_diff = c(NA,diff(DAP_log_EUR))) %>%
+  mutate(DAP_log_diff = c(NA,diff(DAP_log_diff, lag = 7)))
+  na.omit()
 
+  
+test_ts <- ts(esp$DAP_EUR, start = 2019, frequency = 1)
+
+test_ts2 <- log(test_ts+3*abs(min(test_ts))) %>% 
+  diff() %>% 
+  diff(lag = 7)
 
 ggplot(test, aes(x= hourdk, y= DAP_log_EUR)) +
   geom_line() +
@@ -40,17 +44,19 @@ ggplot(test, aes(x= hourdk, y= DAP_log_EUR)) +
 
 
 # Data analysis
-summary(test$DAP_EUR)
+summary(esp$DAP_EUR)
 adf.test(esp$DAP_EUR)
 acf(esp$DAP_EUR, lag.max = 50, main = "ACF of Electricity Price Differences in DE-LU BZN in October 2019- March 2022")
 pacf(esp$DAP_EUR, lag.max = 50, main = "PACF of Electricity Price Differences in DE-LU BZN in October 2019- March 2022")
-decomposition <- decompose(ts(esp$DAP_EUR, frequency = 30), type = "additive")
+decomposition <- decompose(ts(esp$DAP_EUR, start = 2019, frequency = 365), type = "additive")
 autoplot(decomposition)
+
 
 # Splitting the data
 size <- round(nrow(delu) * 0.9)
 df <- delu[1:size, ]
 df_test <- delu[(size + 1):nrow(delu), ]
+
 
 # SARIMAX model construction
 mod <- arima(esp$DAP_EUR, order = c(1, 1, 2), seasonal = list(order = c(3, 0, 0, 7)),
