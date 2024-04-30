@@ -24,7 +24,7 @@ ggplot(esp_hourly, aes(x = hour,
   geom_point() +
   geom_line() +
   labs(title = "Hourly Price (ALL TIME)", x = "Hour", y = "Average Hourly Price") +
-  theme_minimal()
+  theme_options
 
 # selected hours per week
 esp_hourly_week <- esp %>%
@@ -64,7 +64,9 @@ s_weekday <- ggplot(esp_weekday, aes(x = factor(weekday,
                                               "Friday", "Saturday", "Sunday")),
                         y = avg_weekday_price)) +
   geom_line(aes(group = 1), size = 1) +
-  labs(title = "Average daily prices grouped by weekday", x = "Weekday", y = "Average Weekday Price")
+  labs(title = "Daily Mean Spot Prices Grouped by Day of the Week",
+       x = "Day of the Week", y = "Mean Spot Price (EUR)") +
+  theme_options
 
 
 # daily prices on a monthly basis
@@ -82,7 +84,9 @@ esp_monthly$month <- factor(month.abb[esp_monthly$month], levels = month.abb)
 s_monthly <- ggplot(esp_monthly, aes(x = month,
                         y = avg_monthly_price)) +
   geom_line(aes(group = 1), size = 1) +
-  labs(title = "Average daily prices grouped by month", x = "Month", y = "Average Monthly Price")
+  labs(title = "Daily Mean Spot Prices in EUR Grouped By Month",
+       x = "Month of the Year", y = "Mean Spot Price (EUR)") +
+  theme_options
 par(mfrow = c(1, 1))
 
 

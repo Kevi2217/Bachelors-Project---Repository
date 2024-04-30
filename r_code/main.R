@@ -29,9 +29,15 @@ library(pracma)
 # Henter data fra 2022 og 2023
 elspotprices_14_19_data <- read_excel("elspotprices_14-19.xlsx")
 elspotprices_19_24_data <- read_excel("elspotprices_19-24.xlsx")
-# Sammensætter dataframes så vi har én for begge år
-# esp_data <- esp_22_data %>%
-#   rbind(esp_23_data)
+
+# Theme definition
+theme_options <- theme(
+  plot.title = element_text(size = 14),
+  axis.title.x = element_text(size = 12),
+  axis.title.y = element_text(size = 12),
+  axis.text = element_text(size = 10),
+  legend.title = element_blank(),
+  legend.text = element_text(size = 10))
 
 # Combines data
 esp <- elspotprices_14_19_data %>% 
@@ -39,6 +45,7 @@ esp <- elspotprices_14_19_data %>%
   rename_all(tolower)
 
 # source("seasonal_plots.R")
+
 
 
 esp_daily <- esp %>%
