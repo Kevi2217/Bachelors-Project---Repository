@@ -63,7 +63,8 @@ s_weekday <- ggplot(esp_weekday, aes(x = factor(weekday,
                                               "Wednesday", "Thursday",
                                               "Friday", "Saturday", "Sunday")),
                         y = avg_weekday_price)) +
-  geom_line(aes(group = 1), size = 1) +
+  geom_line(aes(group = 1), size = 0.6) +
+  geom_point() +
   labs(title = "Daily Mean Spot Prices Grouped by Day of the Week",
        x = "Day of the Week", y = "Mean Spot Price (EUR)") +
   theme_options
@@ -83,7 +84,8 @@ esp_monthly$month <- factor(month.abb[esp_monthly$month], levels = month.abb)
 # Monthly plot
 s_monthly <- ggplot(esp_monthly, aes(x = month,
                         y = avg_monthly_price)) +
-  geom_line(aes(group = 1), size = 1) +
+  geom_line(aes(group = 1), size = 0.6) +
+  geom_point() +
   labs(title = "Daily Mean Spot Prices in EUR Grouped By Month",
        x = "Month of the Year", y = "Mean Spot Price (EUR)") +
   theme_options

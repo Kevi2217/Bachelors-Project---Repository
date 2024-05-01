@@ -22,6 +22,8 @@ library(zoo)
 library(tseries)
 library(gridExtra)
 library(pracma)
+library(solitude)
+library(astsa)
 
 # OR Operator
 # |
@@ -69,9 +71,6 @@ ggplot(esp_daily, aes(x = hourdk)) +
                                 "Rolling sd" = "blue")) +
   labs(title = "Average daily Price (2019-2024)", x = "Time", y = "Average Daily Price")
 
-
-
-
 esp_30day_rolling_avg_daily <- esp %>%
   dplyr::mutate(hourdk = as.Date(hourdk)) %>%
   dplyr::group_by(pricearea, hourdk) %>%
@@ -95,96 +94,72 @@ autoplot(esp_ts)
 
 ############################# STL of time series ###############################
 esp_mstl2 <- mstl(msts(esp_ts, seasonal.periods = c(7, 365)), iterate = 50)
-theme_options <- theme(
-  plot.title = element_text(size = 14),
-  axis.title.x = element_text(size = 12),
-  axis.title.y = element_text(size = 12),
-  axis.text = element_text(size = 10),
-  legend.title = element_blank(),
-  legend.text = element_text(size = 10))
+
 # Plot the decomposed components
 autoplot(esp_mstl2) +
   ggtitle("(normal) Multiple STL Decomposition of Daily Mean Spot Prices (2019-2024)") +
   labs(x = "Time", y = "Daily Mean Spot Price (EUR)") +
   theme_options
 ################################################################################
-# Transforming data 
-# log_diff_ts <- log(esp_ts + abs(1.5*min(esp_ts))) %>% diff() %>% diff(lag = 7)
-# autoplot(log_diff_ts)
 
+# Using boxcox transformation
 lambda <- BoxCox.lambda(esp_ts + abs(1.5*min(esp_ts)))
 esp_boxcox <- BoxCox(esp_ts + abs(1.5*min(esp_ts)), lambda) %>% diff() %>% diff(lag = 7)
+autoplot(esp_boxcox)
 
-for (i in which(abs(esp_boxcox) >= 0.05)) {
+##################### OUTLIER REMOVAL USING ISOLATIONFOREST #################### 
+bc_df <- as.data.frame(esp_boxcox)
+iforest<- isolationForest$new()
+iforest$fit(bc_df)
+
+#predict outliers within dataset
+bc_df$pred <- iforest$predict(bc_df)
+bc_df$outlier <- as.factor(ifelse(bc_df$pred$anomaly_score >=0.80, "outlier", "normal"))
+
+
+for (i in which(bc_df$pred$anomaly_score >= 0.8)) {
   # Assign the value of the previous observation to the current index
   esp_boxcox[i] <- esp_boxcox[i - 1]
 }
 autoplot(esp_boxcox)
+################################################################################
 
-
-############################# STL of transformed time series ###############################
+###################### STL of transformed time series ##########################
 esp_mstl2 <- mstl(msts(esp_boxcox, seasonal.periods = c(7, 365)), iterate = 50)
-theme_options <- theme(
-  plot.title = element_text(size = 14),
-  axis.title.x = element_text(size = 12),
-  axis.title.y = element_text(size = 12),
-  axis.text = element_text(size = 10),
-  legend.title = element_blank(),
-  legend.text = element_text(size = 10))
+
 # Plot the decomposed components
 autoplot(esp_mstl2) +
   ggtitle("(BC transformed) Multiple STL Decomposition of Daily Mean Spot Prices (2019-2024)") +
   labs(x = "Time", y = "Daily Mean Spot Price (EUR)") +
   theme_options
 ################################################################################
-
-
-# Augmented Dicket Fuller Test
-adf.test(esp_ts)
-
-adf.test(esp_boxcox)
-
-
 # ACF plot
 ggAcf(esp_ts, main = "ACF Plot")
-
 # PACF plot
-ggpPacf(esp_ts, main = "PACF Plot")
+ggPacf(esp_ts, main = "PACF Plot")
 
 # ACF plot
 ggAcf(esp_boxcox, main = "ACF Plot")
-
 # PACF plot
 ggPacf(esp_boxcox, main = "PACF Plot")
 
-
-
-
-
-
-
-
-
-
-# Fit ARIMA model
-# CREATES arima model
-# arima_model <- arima(esp_ts, order = c(2, 1, 2))
-# 
-# ts.plot(esp_ts, main = "Daily 2015 model test")
-# arima_fit <- esp_ts - residuals(arima_model)
-# points(arima_fit, type = "l", col = "red", lty = 2)
-
-# Creates AR model
-# par(mfrow=c(2,1))
-# plot(arima.sim(list(order=c(1,0,0), ar=.9), n=100), ylab="",
-#        main=(expression(AR(1)~~~phi==+.9)))
-# plot(arima.sim(list(order=c(1,0,0), ar=-.9), n=100), ylab="",
-#        main=(expression(AR(1)~~~phi==-.9)))
-
-# Creates MA model
-# par(mfrow = c(2,1))
-# plot(arima.sim(list(order=c(0,0,1), ma=.5), n=100), ylab = "",
-#        main=(expression(MA(1)~~~theta==+.5)))
-# plot(arima.sim(list(order=c(0,0,1), ma=-.5), n=100), ylab = "",
-#        main=(expression(MA(1)~~~theta==-.5)))
-
+best_AICc <- Inf
+best_order <- c(0, 0)
+# Loop through all combinations of q and p
+for (q in 1:10) {
+  for (p in 1:10) {
+    # Fit ARMA model
+    arima_model <- Arima(esp_boxcox, order = c(q, 0, p))
+    
+    # Calculate AIC score
+    current_AICc <- AIC(arima_model) + (2*(p + q)*(p + q + 1))/(arima_model$nobs - (p + q) - 1)
+    
+    # Update best AIC score and order if current is better
+    if (current_AICc < best_AICc) {
+      best_AICc <- current_AICc
+      best_order <- c(q, p)
+    }
+  }
+  print(paste("Best AICc:", round(best_AICc, 2)))
+  print(best_order)
+}
