@@ -16,11 +16,11 @@ esp <- elspotprices_19_24 %>%
                    DAP_EUR = round(mean(spotpriceeur), 2)) %>% 
   dplyr::filter(pricearea == "DK1")
 
-esp <- esp %>% 
-  ungroup() %>% 
-  dplyr::select(-DAP_DKK,-pricearea) %>%
-  dplyr::mutate(DAP_diff = c(NA,diff(DAP_EUR))) %>%
-  na.omit()
+# esp <- esp %>% 
+#   ungroup() %>% 
+#   dplyr::select(-DAP_DKK,-pricearea) %>%
+#   dplyr::mutate(DAP_diff = c(NA,diff(DAP_EUR))) %>%
+#   na.omit()
 
 
 # Test with log-differenced prices
@@ -88,3 +88,6 @@ forecast_garch <- ugarchforecast(garch_fit, n.ahead = n_steps)
 pred_garch <- as.data.frame(forecast_garch@forecast$standardDeviation)
 pred_garch$Date <- seq(Sys.Date() + 1, by = "day", length.out = n_steps)
 colnames(pred_garch) <- c("Volatility", "Date")
+
+
+
