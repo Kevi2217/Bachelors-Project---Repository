@@ -4,7 +4,7 @@ ts_data <- esp_boxcox
 
 for(i in 1:n){
   
-  model <- arima(ts_data, order = c(3,1,2), seasonal = list(c(4,1,1), periods = 7))
+  model <- arima(ts_data, order = c(3,1,2), seasonal = list(order  = c(4,1,1), periods = 7))
   
   # One-step forecast
   forecast_result <-forecast(model, h = 1)
