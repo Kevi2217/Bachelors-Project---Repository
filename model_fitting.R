@@ -17,6 +17,14 @@ elspot_new <- elspot_new %>%
   dplyr::filter(pricearea == "DK1")
 
 
+<<<<<<< HEAD
+=======
+espnew_ts <- ts(elspot_new$DAP_EUR, start = end(esp_boxcox), frequency = 365)
+
+espnew_ts <- BoxCox(espnew_ts + abs(1.5*min(esp_ts)), lambda) %>% diff() %>% diff(lag = 7)
+
+
+>>>>>>> 8d41e23c1d5643d4e67d3220d25f7667dee314aa
 esp_ts <- ts(esp$DAP_EUR, start = 2019, frequency = 365)
 
 
@@ -33,16 +41,6 @@ esp_boxcox <- BoxCox(esp_ts + abs(1.5*min(esp_ts)), lambda) %>% diff() %>% diff(
 lambda <- BoxCox.lambda(esp_ts + abs(1.5*min(esp_ts)))
 esp_boxcox <- BoxCox(esp_ts + abs(1.5*min(esp_ts)), lambda)
 
-# Convert to multiple seasonality time series
-esp_msts <- msts(esp_boxcox, seasonal.periods = c(7, 365))
-
-# Decompose the time series with multiple seasonality
-esp_mstl <- mstl(esp_msts, iterate = 500)
-
-Acf(esp_boxcox, lag.max = 50)
-Pacf(esp_boxcox, lag.max = 50)
-
-
 # Changing the four 'outliers'
 for (i in seq_along(esp_boxcox)) {
   if (abs(esp_boxcox[i]) > 0.05) {
@@ -50,6 +48,7 @@ for (i in seq_along(esp_boxcox)) {
   }
 }
 
+<<<<<<< HEAD
 sarima_model <- auto.arima(esp_boxcox, seasonal = TRUE, stepwise = FALSE ,approximation = FALSE, ic = "aicc")
 
 plot(forecast(sarima_model, h = 50), xlim = c(2270,2300))
@@ -127,6 +126,8 @@ merged_ts <- ts(merged_elspot$DAP_EUR, start = 2019, frequency = 7)
 merged_elspot <- BoxCox(merged_ts + abs(1.5*min(esp_ts)), lambda) %>% diff() %>% diff(lag = 7)
 
 
+=======
+>>>>>>> 8d41e23c1d5643d4e67d3220d25f7667dee314aa
 ## Arima(3,1,2)(4,1,1)[7]
 
 ggmodel <- arima(esp_boxcox, order = c(3,1,2), seasonal = list(order = c(4,1,1), frequency = 7))
@@ -135,8 +136,6 @@ autoplot(fitted(ggmodel)) + autolayer(esp_boxcox)
 checkresiduals(ggmodel)
 
 gmodel <- auto.arima(esp_boxcox, seasonal = TRUE, method = "ML")
-
-
 
 
 
@@ -151,6 +150,8 @@ Q_range <- 0:3
 
 current_aic <- 0
 best_aic <- list(Inf)
+best_aicc <- list(Inf)
+best_bic <- list(Inf)
 optimal_orders <- list()
 optimal_seasonal_orders <- list()
 
@@ -164,9 +165,13 @@ for (p in p_range) {
                      max.p = p, max.q = q, max.P = P, max.Q = Q))
         # Check if model fitting was successful and evaluate based on AIC
         if (!is.null(sarima_model)) {
-          current_aic <- sarima_model$aic
+          current_aicc <- sarima_model$aicc
+          current_aic <-  sarima_model$aic
+          current_bic <- sarima_model$bic
           if (current_aic < tail(best_aic, n=1)) {
+            best_aicc <- append(best_aicc, current_aicc)
             best_aic <- append(best_aic, current_aic)
+            best_bic <- append(best_bic, current_bic)
             optimal_orders <- append(optimal_orders,c(p, d, q))
             optimal_seasonal_orders <- append(optimal_seasonal_orders,c(P, D, Q))
           }
@@ -193,6 +198,16 @@ get_aic <- function(model){
   metrics <- list(AIC(model),aicc,BIC(model))
   return(metrics)
 }
+
+# Best model SARIMA(4,1,2)(5,1,0)[7] ... AIC = -20218.51
+# 2.best model SARIMA(2,1,3)(5,1,0)[7] ... AIC = -20218.27
+# 3. best model SARIMA(1,1,2)(5,1,0) ... AIC = -20202.51
+# 4. best model SARIMA(0,1,4)(5,1,0) ... AIC = -20199.44
+# 5. best model SARIMA(0,1,3)(5,1,0) ... AIC = -20196.67
+
+model <- arima(esp_boxcox, order = c(4,0,2), seasonal = list(order = c(5,0,0), periods = 7))
+autoplot(esp_boxcox) + autolayer(fitted(model))
+
 
 
 library(LSTS)
