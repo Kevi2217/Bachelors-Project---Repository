@@ -17,7 +17,7 @@ elspot_new <- elspot_new %>%
   dplyr::filter(pricearea == "DK1")
 
 
-esp_ts <- ts(esp$DAP_EUR, start = 2019, frequency = 7)
+esp_ts <- ts(esp$DAP_EUR, start = 2019, frequency = 365)
 
 
 # Difference the time series
@@ -45,7 +45,7 @@ Pacf(esp_boxcox, lag.max = 50)
 
 # Changing the four 'outliers'
 for (i in seq_along(esp_boxcox)) {
-  if (abs(esp_boxcox[i]) > 0.02) {
+  if (abs(esp_boxcox[i]) > 0.05) {
     esp_boxcox[i] <- mean(esp_boxcox[max(1, i - 6):i])
   }
 }
@@ -103,7 +103,7 @@ model_auto <- auto.arima(esp_boxcox, seasonal = TRUE, stepwise = FALSE, approxim
 checkresiduals(model)
 
 # Perform Ljung-Box test
-ljung_box_test <- Box.test(residuals(model), lag = 20, type = "Ljung-Box")
+ljung_box_test <- Box.test(residuals(model), type = "Ljung-Box")
 
 # Plot Ljung-Box test results
 plot(ljung_box_test$p.value, type = "o", ylim = c(0, 1), ylab = "p-value", xlab = "Lag", 
@@ -145,9 +145,9 @@ gmodel <- auto.arima(esp_boxcox, seasonal = TRUE, method = "ML")
 p_range <- 0:5
 d <- 1
 q_range <- 0:5
-P_range <- 0:5
+P_range <- 0:8
 D <- 1
-Q_range <- 0:5
+Q_range <- 0:3
 
 current_aic <- 0
 best_aic <- list(Inf)
@@ -176,6 +176,24 @@ for (p in p_range) {
   }
 }
 
+model <- arima(esp_boxcox, order = c(1,0,3), seasonal = list(order = c(8,0,0), periods = 7))
+autoplot(model)
+checkresiduals(model)
+autoplot(forecast(model, h = 100), xlim = c(2275,2300))
+
+model2 <- arima(esp_boxcox, order = c(0,0,4), seasonal = list(order = c(8,0,0), periods = 7))
+model3 <- arima(esp_boxcox, order = c(0,0,3), seasonal = list(order = c(8,0,0), periods = 7))
+model4 <- arima(esp_boxcox, order = c(0,0,3), seasonal = list(order = c(7,0,0), periods = 7))
+model5 <- arima(esp_boxcox, order = c(0,0,2), seasonal = list(order = c(8,0,0), periods = 7))
+
+get_aic <- function(model){
+  n <- length(model$residuals)
+  k <- length(model$coef)
+  aicc <- AIC(model) + (2 * k * (k + 1)) / (n - k - 1)
+  metrics <- list(AIC(model),aicc,BIC(model))
+  return(metrics)
+}
 
 
-
+library(LSTS)
+Box.Ljung.Test(model$residuals, lag = 42)
