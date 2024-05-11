@@ -110,4 +110,36 @@ autoplot(esp_boxcox) + autolayer(fitted(model))
 
 
 
+# Forecasting
+esp_only <- BoxCox(esp_ts + abs(1.5*min(esp_ts)), lambda)
+# Changing the four 'outliers'
+for (i in seq_along(esp_only)) {
+  if (esp_only[i] < 0.985) {
+    esp_only[i] <- mean(esp_only[max(1, i - 6):i])
+  }
+}
+
+espnew_only <- ts(elspot_new$DAP_EUR, start = end(esp_only), frequency = 365)
+espnew_only <- BoxCox(espnew_only + abs(1.5*min(esp_ts)), lambda)
+espnew_ts <- ts(elspot_new$DAP_EUR, start = end(esp_boxcox), frequency = 365)
+merged_ts <- ts(c(esp_ts, espnew_ts), start = 2019, frequency = 365)
+
+testmodel <- arima(esp_only, order = c(1,1,3), seasonal = list(order = c(8,1,0), periods = 7))
+
+forecast_df <- data.frame("mean" = InvBoxCox(forecast(testmodel, h= 116)$mean, lambda)-abs(1.5*min(esp_ts)),
+                          "upper" = InvBoxCox(forecast(testmodel, h= 116)$upper, lambda)-abs(1.5*min(esp_ts)),
+                          "lower" = InvBoxCox(forecast(testmodel, h= 116)$lower, lambda)-abs(1.5*min(esp_ts)))
+
+mean_ts <- ts(forecast_df$mean, start = end(esp_ts), frequency = 365)
+upper_ts <-ts(forecast_df$upper.95., start = end(esp_ts), frequency = 365)
+lower_ts <- ts(forecast_df$lower.95., start = end(esp_ts), frequency = 365)
+
+autoplot(merged_ts) +
+  autolayer(mean_ts) +
+  geom_ribbon(data = espnew_ts, aes(ymin = lower_ts, ymax = upper_ts), alpha = 0.3) +
+  ylab("EUR/MWh") +
+  ggtitle("One-Step Forecast with Upper and Lower Bounds") +
+  coord_cartesian(xlim = c(2023.5, 2024.5))
+
+
 
