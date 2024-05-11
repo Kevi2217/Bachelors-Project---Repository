@@ -17,11 +17,14 @@ elspot_new <- elspot_new %>%
   dplyr::filter(pricearea == "DK1")
 
 
+<<<<<<< HEAD
+=======
 espnew_ts <- ts(elspot_new$DAP_EUR, start = end(esp_boxcox), frequency = 365)
 
 espnew_ts <- BoxCox(espnew_ts + abs(1.5*min(esp_ts)), lambda) %>% diff() %>% diff(lag = 7)
 
 
+>>>>>>> 8d41e23c1d5643d4e67d3220d25f7667dee314aa
 esp_ts <- ts(esp$DAP_EUR, start = 2019, frequency = 365)
 
 
@@ -40,11 +43,91 @@ esp_boxcox <- BoxCox(esp_ts + abs(1.5*min(esp_ts)), lambda)
 
 # Changing the four 'outliers'
 for (i in seq_along(esp_boxcox)) {
-  if (abs(esp_boxcox[i]) > 0.02) {
+  if (abs(esp_boxcox[i]) > 0.05) {
     esp_boxcox[i] <- mean(esp_boxcox[max(1, i - 6):i])
   }
 }
 
+<<<<<<< HEAD
+sarima_model <- auto.arima(esp_boxcox, seasonal = TRUE, stepwise = FALSE ,approximation = FALSE, ic = "aicc")
+
+plot(forecast(sarima_model, h = 50), xlim = c(2270,2300))
+
+
+# Define ranges for p, d, q, P, D, Q parameters
+p_range <- 0:5
+d <- 1
+q_range <- 0:5
+P_range <- 0:5
+D <- 1
+Q_range <- 0:5
+
+# Initialize variables to store optimal values and corresponding criteria
+best_aic <- Inf
+optimal_order <- c(0, 0, 0)
+optimal_seasonal_order <- c(0, 0, 0)
+
+# Loop through parameter combinations
+for (p in p_range) {
+  for (q in q_range) {
+    for (P in P_range) {
+      for (Q in Q_range) {
+        # Fit SARIMA model for each combination
+        sarima_model <- tryCatch(
+          auto.arima(esp_ts, seasonal = TRUE, 
+                     max.p = p, max.q = q, max.P = P, max.Q = Q))
+        # Check if model fitting was successful and evaluate based on AIC
+        if (!is.null(sarima_model)) {
+          current_aic <- sarima_model$aic
+          if (current_aic < best_aic) {
+            best_aic <- current_aic
+            optimal_order <- c(p, d, q)
+            optimal_seasonal_order <- c(P, D, Q)
+          }
+        }
+      }
+    }
+  }
+}
+
+# AIC.
+# optimal_order (1,0,2)
+# optimal_seasonal order (5,0,0)
+
+model <- arima(esp_ts, order = c(1,1,2), seasonal = list(order = c(5,1,0), periods = 7))
+
+model_auto <- auto.arima(esp_boxcox, seasonal = TRUE, stepwise = FALSE, approximation = FALSE, ic = "aicc")
+
+# Performing model diagnostic
+checkresiduals(model)
+
+# Perform Ljung-Box test
+ljung_box_test <- Box.test(residuals(model), type = "Ljung-Box")
+
+# Plot Ljung-Box test results
+plot(ljung_box_test$p.value, type = "o", ylim = c(0, 1), ylab = "p-value", xlab = "Lag", 
+     main = "Ljung-Box Test")
+
+# Add a horizontal line at the significance level (e.g., 0.05)
+abline(h = 0.05, col = "red", lty = 2)
+
+# Add legend
+legend("topright", legend = c("p-value", "Significance Level"), col = c("black", "red"), 
+       lty = c(1, 2), cex = 0.8)
+
+plot(forecast(model_auto, h = 50 ), xlim = c(2270,2300))
+
+
+# Merging the training data with test data
+merged_elspot <- merge(esp,elspot_new, all = TRUE)
+
+merged_ts <- ts(merged_elspot$DAP_EUR, start = 2019, frequency = 7)
+
+merged_elspot <- BoxCox(merged_ts + abs(1.5*min(esp_ts)), lambda) %>% diff() %>% diff(lag = 7)
+
+
+=======
+>>>>>>> 8d41e23c1d5643d4e67d3220d25f7667dee314aa
 ## Arima(3,1,2)(4,1,1)[7]
 
 ggmodel <- arima(esp_boxcox, order = c(3,1,2), seasonal = list(order = c(4,1,1), frequency = 7))
@@ -98,6 +181,23 @@ for (p in p_range) {
   }
 }
 
+model <- arima(esp_boxcox, order = c(1,0,3), seasonal = list(order = c(8,0,0), periods = 7))
+autoplot(model)
+checkresiduals(model)
+autoplot(forecast(model, h = 100), xlim = c(2275,2300))
+
+model2 <- arima(esp_boxcox, order = c(0,0,4), seasonal = list(order = c(8,0,0), periods = 7))
+model3 <- arima(esp_boxcox, order = c(0,0,3), seasonal = list(order = c(8,0,0), periods = 7))
+model4 <- arima(esp_boxcox, order = c(0,0,3), seasonal = list(order = c(7,0,0), periods = 7))
+model5 <- arima(esp_boxcox, order = c(0,0,2), seasonal = list(order = c(8,0,0), periods = 7))
+
+get_aic <- function(model){
+  n <- length(model$residuals)
+  k <- length(model$coef)
+  aicc <- AIC(model) + (2 * k * (k + 1)) / (n - k - 1)
+  metrics <- list(AIC(model),aicc,BIC(model))
+  return(metrics)
+}
 
 # Best model SARIMA(4,1,2)(5,1,0)[7] ... AIC = -20218.51
 # 2.best model SARIMA(2,1,3)(5,1,0)[7] ... AIC = -20218.27
@@ -110,6 +210,7 @@ autoplot(esp_boxcox) + autolayer(fitted(model))
 
 
 
+<<<<<<< HEAD
 # Forecasting
 esp_only <- BoxCox(esp_ts + abs(1.5*min(esp_ts)), lambda)
 # Changing the four 'outliers'
@@ -143,3 +244,7 @@ autoplot(merged_ts) +
 
 
 
+=======
+library(LSTS)
+Box.Ljung.Test(model$residuals, lag = 42)
+>>>>>>> 5951a7b05715c99380779900dba65f18a936b48e
