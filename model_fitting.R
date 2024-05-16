@@ -19,7 +19,8 @@ elspot_new <- elspot_new %>%
 
 <<<<<<< HEAD
 =======
-espnew_ts <- ts(elspot_new$DAP_EUR, start = end(esp_boxcox), frequency = 365)
+#
+espnew_ts <- ts(elspot_new$DAP_EUR, start = end(esp_ts), frequency = 365)
 
 espnew_ts <- BoxCox(espnew_ts + abs(1.5*min(esp_ts)), lambda) %>% diff() %>% diff(lag = 7)
 
@@ -43,7 +44,7 @@ esp_boxcox <- BoxCox(esp_ts + abs(1.5*min(esp_ts)), lambda)
 
 # Changing the four 'outliers'
 for (i in seq_along(esp_boxcox)) {
-  if (abs(esp_boxcox[i]) > 0.05) {
+  if (abs(esp_boxcox[i]) > 0.02) {
     esp_boxcox[i] <- mean(esp_boxcox[max(1, i - 6):i])
   }
 }
@@ -210,10 +211,9 @@ autoplot(esp_boxcox) + autolayer(fitted(model))
 
 
 
-<<<<<<< HEAD
 # Forecasting
 esp_only <- BoxCox(esp_ts + abs(1.5*min(esp_ts)), lambda)
-# Changing the four 'outliers'
+# Changing the 'outliers'
 for (i in seq_along(esp_only)) {
   if (esp_only[i] < 0.985) {
     esp_only[i] <- mean(esp_only[max(1, i - 6):i])
@@ -226,6 +226,7 @@ espnew_ts <- ts(elspot_new$DAP_EUR, start = end(esp_boxcox), frequency = 365)
 merged_ts <- ts(c(esp_ts, espnew_ts), start = 2019, frequency = 365)
 
 testmodel <- arima(esp_only, order = c(1,1,3), seasonal = list(order = c(8,1,0), periods = 7))
+
 
 forecast_df <- data.frame("mean" = InvBoxCox(forecast(testmodel, h= 116)$mean, lambda)-abs(1.5*min(esp_ts)),
                           "upper" = InvBoxCox(forecast(testmodel, h= 116)$upper, lambda)-abs(1.5*min(esp_ts)),
@@ -242,9 +243,23 @@ autoplot(merged_ts) +
   ggtitle("One-Step Forecast with Upper and Lower Bounds") +
   coord_cartesian(xlim = c(2023.5, 2024.5))
 
+# Calculate the MAPE
+library(MLmetrics) 
+library(Metrics)
+mean(abs((espnew_ts - mean_ts)/espnew_ts))* 100
+MAPE(mean_ts, espnew_ts)
 
+# Calculate standard error (mean)
+sd(mean_ts)/sqrt(length(mean_ts))
 
-=======
-library(LSTS)
-Box.Ljung.Test(model$residuals, lag = 42)
->>>>>>> 5951a7b05715c99380779900dba65f18a936b48e
+sd(mean_ts)
+
+mae(espnew_ts, mean_ts)
+
+# Counts amount of observed prices are within the prediction interval
+x <- 0
+for (i in seq_along(espnew_ts)){
+    if (onelowerts[i] < espnew_ts[i] & espnew_ts[i] < oneupperts[i]) {
+      x = x +1
+  }
+}
