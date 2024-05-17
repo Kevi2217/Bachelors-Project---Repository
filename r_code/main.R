@@ -166,15 +166,34 @@ archTest(esp_boxcox)
 
 sarima_model <- stats::arima(esp_boxcox, order = c(1,1,3), seasonal = list(order = c(8,1,0), periods = 7))
 sarima_residuals <- sarima_model$residuals
+############################# GARCH ORDER ESTIMATION ###########################
+results <- data.frame(r = integer(),
+                      s = integer(),
+                      AIC_value = numeric())
 
-                         
+for (r in 1:5) {
+  for (s in 1:5) {
 # Step 3: Fit GARCH Model
 garch_spec <- ugarchspec(
-  variance.model = list(model = "sGARCH", garchOrder = c(2, 1)),
+  variance.model = list(model = "sGARCH", garchOrder = c(r, s)),
   mean.model = list(armaOrder = c(0, 0), include.mean = FALSE)
 )
 garch_fit <- ugarchfit(spec = garch_spec,
                        data = sarima_residuals)
+
+AIC_value <- -2 * garch_fit@fit$LLH + 2 * length(coef(garch_fit))
+
+results <- rbind(results, list(r = r, s = s, AIC_value = AIC_value))
+  }
+}
+################################################################################
+garch_spec <- ugarchspec(
+  variance.model = list(model = "sGARCH", garchOrder = c(1, 2)),
+  mean.model = list(armaOrder = c(0, 0), include.mean = FALSE)
+)
+garch_fit <- ugarchfit(spec = garch_spec,
+                       data = sarima_residuals)
+
 
 sarima_garch_model <- list(sarima_model1 = sarima_model, garch_model1 = garch_fit)
 
