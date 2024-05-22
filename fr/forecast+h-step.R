@@ -74,6 +74,7 @@ res_step_pred <- step_prediction %>%
                 -Lower1,-Lower2,-Lower3,-Lower4,
                 -date, - espnew_time)
 
+# Jan.1 to Jan 31. data
 res31 <- res_step_pred[1:31,]
 
 mean(res31$Residuals3)
