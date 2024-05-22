@@ -1,5 +1,5 @@
 library(ggplot2)
-library(gridExtra)
+
 
 # Getting the residuals
 res_for121 <- espnew_ts - forecast_df$mean

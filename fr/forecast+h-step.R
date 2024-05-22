@@ -85,43 +85,6 @@ max(abs(res31$Residuals1))
 xtable(res31, type = "latex")
 
 
-# Calculate the MAPE and MAE
-library(MLmetrics) 
-library(Metrics)
-# 121-step 
-mean(abs((espnew_ts - mean_ts)/espnew_ts))* 100
-MAPE(mean_ts, espnew_ts)
-mae(espnew_ts, mean_ts)
-
-#one-step MAPE and MAE
-mae(espnew_ts, test_df1$Prediction1)
-mape(espnew_ts, test_df1$Prediction1)
-
-#MAE_resisduals
-sum(abs(res31$Residuals1))/length(res31$Residuals1)
-
-# Counts amount of observed prices are outside the prediction interval (one-step)
-x <- 0
-indexcount <- list()
-for (i in 1:length(espnew_ts)){
-  if (step_prediction$Lower1[i] > espnew_ts[i] | espnew_ts[i] > step_prediction$Upper1[i]) {
-    x = x +1
-    indexcount <- append(indexcount, i)
-  }
-}
-
-
-# Counts amount of observed prices are outside the prediction interval (121-step)
-x <- 0
-indexcount <- list()
-for (i in 1:length(espnew_ts)){
-  if (forecast_df$lower.95.[i] > espnew_ts[i] | espnew_ts[i] > forecast_df$upper.95.[i]) {
-    x = x +1
-    indexcount <- append(indexcount, i)
-  }
-}
-
-
 ##### PLOTS #####
 
 merged_ts <- ts(c(esp_ts, espnew_ts), start = 2019, frequency = 365)
@@ -164,9 +127,9 @@ ggplot(data = step_prediction) +
 
 # Forecast plot (121-step)
 forecast_df <- data.frame(date = seq(as.Date("2023-12-31"), by = "days", length.out = length(espnew_ts)),
-                          mean = InvBoxCox(as.numeric(forecast(testmodel, h= 121)$mean), lambda)-abs(1.5*min(esp_ts)),
-                          upper = InvBoxCox(as.numeric(forecast(testmodel, h= 121)$upper), lambda)-abs(1.5*min(esp_ts)),
-                          lower = InvBoxCox(as.numeric(forecast(testmodel, h= 121)$lower), lambda)-abs(1.5*min(esp_ts)))
+                          mean = InvBoxCox(forecast(testmodel, h= 121)$mean, lambda)-abs(1.5*min(esp_ts)),
+                          upper = InvBoxCox(forecast(testmodel, h= 121)$upper, lambda)-abs(1.5*min(esp_ts)),
+                          lower = InvBoxCox(forecast(testmodel, h= 121)$lower, lambda)-abs(1.5*min(esp_ts)))
 
 ggplot() +
   geom_line(data = merged_df, aes(x = date, y = value, color = "Observed prices")) +
@@ -200,6 +163,43 @@ autoplot(esp_only, series = "Observed values") +
 
 
 ### Forecasted residuals analysis ###
+
+# Calculate the MAPE and MAE
+# 121-step 
+mean(abs((espnew_ts - forecast_df$mean)/espnew_ts))* 100
+MAPE(forecast_df$mean, espnew_ts)
+mae(espnew_ts, forecast_df$mean)
+
+#one-step MAPE and MAE
+mae(espnew_ts, test_df1$Prediction1)
+mape(espnew_ts, test_df1$Prediction1)
+
+#MAE_resisduals
+sum(abs(res31$Residuals1))/length(res31$Residuals1)
+
+# Counts amount of observed prices are outside the prediction interval (one-step)
+x <- 0
+indexcount <- list()
+for (i in 1:length(espnew_ts)){
+  if (step_prediction$Lower1[i] > espnew_ts[i] | espnew_ts[i] > step_prediction$Upper1[i]) {
+    x = x +1
+    indexcount <- append(indexcount, i)
+  }
+}
+x
+indexcount
+
+# Counts amount of observed prices are outside the prediction interval (121-step)
+x <- 0
+indexcount <- list()
+for (i in 1:length(espnew_ts)){
+  if (forecast_df$lower.95.[i] > espnew_ts[i] | espnew_ts[i] > forecast_df$upper.95.[i]) {
+    x = x +1
+    indexcount <- append(indexcount, i)
+  }
+}
+x
+indexcount
 
 # Getting the residuals
 res_for121 <- espnew_ts - forecast_df$mean

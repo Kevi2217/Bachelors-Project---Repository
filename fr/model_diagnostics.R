@@ -1,6 +1,6 @@
 
 # Residuals analysis
-checkresiduals(testmodel$residuals)
+checkresiduals(testmodel$residuals, lag.max = 30)
 
 ljungbox <- function(model, h){
   p_values <- rep(0,h)

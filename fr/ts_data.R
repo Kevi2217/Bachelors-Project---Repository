@@ -8,6 +8,8 @@ library(forecast)
 library(ggplot2)
 library(gridExtra)
 library(LSTS)
+library(MLmetrics) 
+library(Metrics)
 
 # Training data
 elspotprices_19_24 <- elspotprices_19_24 %>% 

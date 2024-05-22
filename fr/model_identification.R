@@ -42,7 +42,6 @@ for (p in p_range) {
   }
 }
 
-
 #Given model.
 testmodel <- arima(esp_only, order = c(1,1,3), seasonal = list(order = c(8,1,0), periods = 7))
 
@@ -51,4 +50,4 @@ summary(testmodel)
 autoplot(testmodel)
 
 #fit plot 
-autoplot(esp_ts) + autolayer(fitted(testmodel))
+autoplot(esp_only) + autolayer(fitted(testmodel))

@@ -1,6 +1,12 @@
-library(forecast)
 library(dplyr)
 library(scales)
+library(tidyr)
+library(lubridate)
+library(tseries)
+library(MASS)
+library(forecast)
+library(ggplot2)
+
 
 merged_ts1 <- c(esp_only, espnew_only)
 test_df <- data.frame()
@@ -66,7 +72,7 @@ step_prediction <- data.frame(date = seq(as.Date("2023-12-31"), by = "days", len
                               Prediction4 = test_df1$Prediction4,
                               Upper4 = test_df1$Upper4,
                               Lower4 = test_df1$Lower4
-                              )
+)
 
 res_step_pred <- step_prediction %>% 
   mutate(Residuals1 = espnew_time - Prediction1,
@@ -199,4 +205,24 @@ autoplot(esp_only, series = "Observed values") +
   ylab("Box-Cox-transformed prices") +
   scale_color_manual(values = c("Observed values" = "black", "Fitted values" = "coral1")) +
   labs(title = "Fitted Values of SARIMA(1,1,3)(8,1,0)[7]", color = "Legend")
-  
+
+
+### Forecasted residuals analysis ###
+
+# Getting the residuals
+res_for121 <- espnew_ts - forecast_df$mean
+
+# Plot histogram
+his1 <- gghistogram(res_for121, add.normal = TRUE, add.rug = TRUE) + 
+  labs(title = "Residuals of 121-Step Forecast", x = "residuals", y = "count")
+
+
+#Residuals analysis of 1-step forecast
+res_for1 <- res_step_pred$Residuals1
+
+# Plot histogram
+his2 <- gghistogram(res_for1, add.normal = TRUE, add.rug = TRUE) + 
+  labs(title = "Residuals of One-Step Forecast", x = "residuals", y = "count")
+
+
+combined_plot <- grid.arrange(his1, his2, ncol = 2)
