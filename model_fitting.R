@@ -2,10 +2,10 @@ library(sarima)
 library(forecast)
 
 # Format the newer data points.
-Elspotprices_1_1_2024_25_4_2024 <- Elspotprices_1_1_2024_25_4_2024 %>% 
+elspotprices_2024_to_may <- elspotprices_2024_to_may %>% 
   rename_all(tolower)
 
-elspot_new <- Elspotprices_1_1_2024_25_4_2024 %>% 
+elspot_new <- elspotprices_2024_to_may %>% 
   dplyr::mutate(spotpricedkk = as.numeric(gsub(",",".",spotpricedkk, fixed = TRUE))) %>% 
   dplyr::mutate(spotpriceeur = as.numeric(gsub(",",".",spotpriceeur, fixed = TRUE))) %>% 
   dplyr::mutate(hourdk = as.Date(hourdk))
@@ -26,6 +26,7 @@ espnew_ts <- BoxCox(espnew_ts + abs(1.5*min(esp_ts)), lambda) %>% diff() %>% dif
 
 
 >>>>>>> 8d41e23c1d5643d4e67d3220d25f7667dee314aa
+
 esp_ts <- ts(esp$DAP_EUR, start = 2019, frequency = 365)
 
 
@@ -222,26 +223,32 @@ for (i in seq_along(esp_only)) {
 
 espnew_only <- ts(elspot_new$DAP_EUR, start = end(esp_only), frequency = 365)
 espnew_only <- BoxCox(espnew_only + abs(1.5*min(esp_ts)), lambda)
-espnew_ts <- ts(elspot_new$DAP_EUR, start = end(esp_boxcox), frequency = 365)
+espnew_ts <- ts(elspot_new$DAP_EUR, start = end(esp_ts), frequency = 365)
 merged_ts <- ts(c(esp_ts, espnew_ts), start = 2019, frequency = 365)
+
 
 testmodel <- arima(esp_only, order = c(1,1,3), seasonal = list(order = c(8,1,0), periods = 7))
 
 
-forecast_df <- data.frame("mean" = InvBoxCox(forecast(testmodel, h= 116)$mean, lambda)-abs(1.5*min(esp_ts)),
-                          "upper" = InvBoxCox(forecast(testmodel, h= 116)$upper, lambda)-abs(1.5*min(esp_ts)),
-                          "lower" = InvBoxCox(forecast(testmodel, h= 116)$lower, lambda)-abs(1.5*min(esp_ts)))
+
+forecast_df <- data.frame("mean" = InvBoxCox(forecast(testmodel, h= 121)$mean, lambda)-abs(1.5*min(esp_ts)),
+                          "upper" = InvBoxCox(forecast(testmodel, h= 121)$upper, lambda)-abs(1.5*min(esp_ts)),
+                          "lower" = InvBoxCox(forecast(testmodel, h= 121)$lower, lambda)-abs(1.5*min(esp_ts)))
 
 mean_ts <- ts(forecast_df$mean, start = end(esp_ts), frequency = 365)
 upper_ts <-ts(forecast_df$upper.95., start = end(esp_ts), frequency = 365)
 lower_ts <- ts(forecast_df$lower.95., start = end(esp_ts), frequency = 365)
 
-autoplot(merged_ts) +
-  autolayer(mean_ts) +
+
+autoplot(merged_ts, series = "Observed prices") +
+  autolayer(mean_ts, series = "Predicted prices") +
   geom_ribbon(data = espnew_ts, aes(ymin = lower_ts, ymax = upper_ts), alpha = 0.3) +
   ylab("EUR/MWh") +
-  ggtitle("One-Step Forecast with Upper and Lower Bounds") +
-  coord_cartesian(xlim = c(2023.5, 2024.5))
+  ggtitle("Forecast of Electricity Prices") +
+  #scale_x_date(date_labels = "%b %Y", breaks = date_breaks("1 month")) +
+  coord_cartesian(xlim = c(2023.95, 2024.3), ylim = c(0,300)) +
+  scale_color_manual(values = c("Observed prices" = "black", "Predicted prices" = "orangered")) +
+  labs(color = "Legend")
 
 # Calculate the MAPE
 library(MLmetrics) 
@@ -263,3 +270,5 @@ for (i in seq_along(espnew_ts)){
       x = x +1
   }
 }
+
+

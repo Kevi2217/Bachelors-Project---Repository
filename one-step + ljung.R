@@ -51,7 +51,8 @@ autoplot(merged_ts) +
   ylab("Your Y-Axis Label") +
   xlab("Your X-Axis Label") +
   ggtitle("One-Step Forecast with Upper and Lower Bounds") +
-  coord_cartesian(xlim = c(2023.9, 2024.3))
+  coord_cartesian(xlim = c(2023.9, 2024.3), ylim = c(0,200))
+  
 
 mae(espnew_ts, onestepts - abs(1.5*min(esp_ts)))
 mape(espnew_ts, onestepts - abs(1.5*min(esp_ts)))
@@ -59,7 +60,6 @@ mape(espnew_ts, onestepts - abs(1.5*min(esp_ts)))
 
 
 # Count every observation outside the prediction interval.
-
 ggonestep <- rep(0,m)
 ggoneupper <- rep(0,m)
 ggonelower <- rep(0,m)
@@ -82,13 +82,15 @@ library(LSTS)
 ljungbox <- function(model, h){
   p_values <- rep(0,h)
   for (i in 1:h){
-  p_values[i] <- Box.test(testmodel$residuals, lag = i, type = "Ljung", fitdf = i - 1 - 3)$p.value
+  p_values[i] <- Box.test(testmodel$residuals, lag = i, type = "Ljung")$p.value
   }
   ggplot()+
-    geom_point(aes(x = 1:h,y = p_values)) +
-    geom_hline(yintercept = 0.05, linetype = "dashed", color = "blue") +
-    coord_cartesian(ylim = c(0, 1))
+    geom_point(aes(x = 1:h,y = p_values, shape = "p-value")) +
+    geom_hline(color = "blue", yintercept = 0.05, linetype = "dashed") +
+    xlab("Lag") +
+    ylab("p-value") +
+    coord_cartesian(ylim = c(0, 1)) +
+    labs(title = "Ljung-Box Test for SARIMA(1,1,3)(8,1,0)[7] Residuals", shape = "Legend")
 }
-ljungbox(testmodel, 50)
+ljungbox(testmodel, 14)
 
-g <- Arima(esp_only, order = c(0,1,4), seasonal = list(order = c(2,1,3), periods = 7))

@@ -88,6 +88,3 @@ forecast_garch <- ugarchforecast(garch_fit, n.ahead = n_steps)
 pred_garch <- as.data.frame(forecast_garch@forecast$standardDeviation)
 pred_garch$Date <- seq(Sys.Date() + 1, by = "day", length.out = n_steps)
 colnames(pred_garch) <- c("Volatility", "Date")
-
-
-
