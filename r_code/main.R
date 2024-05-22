@@ -25,11 +25,12 @@ library(pracma)
 library(solitude)
 library(astsa)
 library(rugarch)
+library(LSTS)
+library(scales)
 
-# OR Operator
-# |
 
-# Henter data fra 2022 og 2023
+########################## Preprocessing for GARCH #############################
+# Get data from 2014 to 2024
 elspotprices_14_19_data <- read_excel("elspotprices_14-19.xlsx")
 elspotprices_19_24_data <- read_excel("elspotprices_19-24.xlsx")
 # The below is for later when testing models
@@ -105,16 +106,6 @@ autoplot(esp_ts)
 esp_test_ts <- ts(esp_test$daily_mean_spotpriceeur, frequency = 365,
                   start = 2024)
 
-############################# STL of time series ###############################
-esp_mstl2 <- mstl(msts(esp_ts, seasonal.periods = c(7, 365)), iterate = 50)
-
-# Plot the decomposed components
-autoplot(esp_mstl2) +
-  ggtitle("(normal) Multiple STL Decomposition of Daily Mean Spot Prices (2019-2024)") +
-  labs(x = "Time", y = "Daily Mean Spot Price (EUR)") +
-  theme_options
-################################################################################
-
 # Using boxcox transformation
 lambda <- BoxCox.lambda(esp_ts + abs(1.5*min(esp_ts)))
 esp_boxcox <- BoxCox(esp_ts + abs(1.5*min(esp_ts)), lambda)
@@ -125,57 +116,40 @@ autoplot(esp_test_boxcox)
 
 
 ##################### OUTLIER REMOVAL USING ISOLATIONFOREST #################### 
-bc_df <- as.data.frame(esp_boxcox)
-iforest<- isolationForest$new()
-iforest$fit(bc_df)
+# bc_df <- as.data.frame(esp_boxcox)
+# iforest<- isolationForest$new()
+# iforest$fit(bc_df)
+# 
+# #predict outliers within dataset
+# bc_df$pred <- iforest$predict(bc_df)
+# bc_df$outlier <- as.factor(ifelse(bc_df$pred$anomaly_score >=0.78, "outlier", "normal"))
+#  
+# for (i in which(bc_df$pred$anomaly_score >= 0.78)) {
+#   # Assign the value of the previous 7 observations
+#   esp_boxcox[i] <- mean(esp_boxcox[(i - 6):i])
+#   bc_df$pred$anomaly_score[i] <- 0
+# }
+# autoplot(esp_boxcox)
 
-#predict outliers within dataset
-bc_df$pred <- iforest$predict(bc_df)
-bc_df$outlier <- as.factor(ifelse(bc_df$pred$anomaly_score >=0.78, "outlier", "normal"))
- 
-for (i in which(bc_df$pred$anomaly_score >= 0.78)) {
-  # Assign the value of the previous 7 observations
-  esp_boxcox[i] <- mean(esp_boxcox[(i - 6):i])
-  bc_df$pred$anomaly_score[i] <- 0
-}
-autoplot(esp_boxcox)
-################################################################################
-
-###################### STL of transformed time series ##########################
-esp_mstl2 <- mstl(msts(esp_boxcox, seasonal.periods = c(7, 365)), iterate = 50)
-
-# Plot the decomposed components
-autoplot(esp_mstl2) +
-  ggtitle("(BC transformed) Multiple STL Decomposition of Daily Mean Spot Prices (2019-2024)") +
-  labs(x = "Time", y = "Daily Mean Spot Price (EUR)") +
-  theme_options
-################################################################################
-# ACF plot
-ggAcf(esp_ts, main = "ACF Plot")
-# PACF plot
-ggPacf(esp_ts, main = "PACF Plot")
-
-# ACF plot
-ggAcf(esp_boxcox, main = "ACF Plot", lag.max = 50)
-# PACF plot
-ggPacf(esp_boxcox, main = "PACF Plot", lag.max = 50)
-
-##############################################################  GARCH  ########################################################
+################################### !GARCH! ####################################
 # seasonal arima = 8, 1, 0
 archTest(esp_boxcox)
 
 sarima_model <- stats::arima(esp_boxcox, order = c(1,1,3), seasonal = list(order = c(8,1,0), periods = 7))
 sarima_residuals <- sarima_model$residuals
-############################# GARCH ORDER ESTIMATION ###########################
-results <- data.frame(r = integer(),
-                      s = integer(),
-                      AIC_value = numeric())
 
-for (r in 1:5) {
-  for (s in 1:5) {
+############################# GARCH ORDER ESTIMATION ###########################
+results <- data.frame(m = integer(),
+                      s = integer(),
+                      AIC_value = numeric(),
+                      AICC_value = numeric(),
+                      BIC_value = numeric())
+
+for (m in 0:2) {
+  for (s in 0:2) {
 # Step 3: Fit GARCH Model
 garch_spec <- ugarchspec(
-  variance.model = list(model = "sGARCH", garchOrder = c(r, s)),
+  variance.model = list(model = "sGARCH", garchOrder = c(m, s)),
   mean.model = list(armaOrder = c(0, 0), include.mean = FALSE)
 )
 garch_fit <- ugarchfit(spec = garch_spec,
@@ -183,10 +157,17 @@ garch_fit <- ugarchfit(spec = garch_spec,
 
 AIC_value <- -2 * garch_fit@fit$LLH + 2 * length(coef(garch_fit))
 
-results <- rbind(results, list(r = r, s = s, AIC_value = AIC_value))
+AICC_value <- AIC_value + (2*length(coef(garch_fit))*(length(coef(garch_fit)) + 1)) / (length(sarima$residuals) - length(coef(garch_fit)) + 1)  
+
+BIC_value <- - 2*garch_fit@fit$LLH + log(length(sarima$residuals))*length(coef(garch_fit))
+
+results <- rbind(results, list(m = m, s = s, AIC_value = AIC_value, 
+                               AICC_value = AICC_value,
+                               BIC_value = BIC_value))
   }
 }
-################################################################################
+
+######################### Moving on with GARCH (1, 2) ##########################
 garch_spec <- ugarchspec(
   variance.model = list(model = "sGARCH", garchOrder = c(1, 2)),
   mean.model = list(armaOrder = c(0, 0), include.mean = FALSE)
@@ -198,27 +179,73 @@ garch_fit <- ugarchfit(spec = garch_spec,
 sarima_garch_model <- list(sarima_model1 = sarima_model, garch_model1 = garch_fit)
 
 
+grid.arrange(ggAcf((garch_fit@fit$residuals / garch_fit@fit$sigma)^2,
+                   main = "Standardized Residuals Squared ACF", lag.max = 50),
+             ggPacf((garch_fit@fit$residuals / garch_fit@fit$sigma)^2,
+                    main = "Standardized Residuals Squared PACF", lag.max = 50),
+             ncol = 2)
+
+# Standardized residuals plot
+checkresiduals(ts(sarima_residuals / garch_fit@fit$sigma, start = 2019, frequency = 365), lag.max = 30)
+
+# Ljung-Box plot
+ljungbox <- function(model, h) {
+  p_values <- rep(0,h)
+  for (i in 1:h){
+    p_values[i] <- Box.test((model@fit$residuals / garch_fit@fit$sigma), lag = i,
+                            type = c("Ljung-Box"))$p.value
+  }
+  ggplot()+
+    geom_point(aes(x = 1:h,y = p_values, shape = "p-value")) +
+    geom_hline(color = "blue", yintercept = 0.05, linetype = "dashed") +
+    xlab("Lag") +
+    ylab("p-value") +
+    coord_cartesian(ylim = c(0, 1)) +
+    labs(shape = "Legend")
+}
+ljungbox(garch_fit, 14)
+
+
+
+############################ 121-step forecast #################################
 # SARIMA forecast
-sarima_forecasts <- forecast(sarima_garch_model$sarima_model1, h = length(esp_test_boxcox))
+long_pred <- forecast(sarima_garch_model$sarima_model1, h = length(esp_test_boxcox))$mean
 
 # GARCH forecast
-garch_forecasts <- ugarchforecast(sarima_garch_model$garch_model1, n.ahead = length(esp_test_boxcox))
+long_garch_forecasts <- ugarchforecast(sarima_garch_model$garch_model1, n.ahead = length(esp_test_boxcox))
 
-# LONG FORECAST ALL DAYS
+long_upper <- onestep_pred + 1.96 * sigma(long_garch_forecasts)
+
+long_lower <- onestep_pred - 1.96 * sigma(long_garch_forecasts)
+
+long_pred_ts <- ts(long_pred, start = 2024, frequency = 365)
+rscale_long_pred_ts <- InvBoxCox(long_pred_ts, lambda) - abs(1.5*min(esp_ts))
+
+long_upper_ts <- ts(long_upper, start = 2024, frequency = 365)
+rscale_long_upper_ts <- InvBoxCox(long_upper_ts, lambda) - abs(1.5*min(esp_ts))
+
+long_lower_ts <- ts(long_lower, start = 2024, frequency = 365)
+rscale_long_lower_ts <- InvBoxCox(long_lower_ts, lambda) - abs(1.5*min(esp_ts))
+
+
 merged_boxcox_ts <- ts(c(esp_boxcox, esp_test_boxcox), start = 2019, frequency = 365)
 merged_ts <- ts(c(esp_ts, esp_test_ts), start = 2019, frequency = 365)
 
-autoplot(merged_boxcox_ts) +
-  autolayer(sarima_forecasts$mean) +
-  geom_ribbon(data = esp_test_boxcox, aes(ymin = sarima_forecasts$mean - 1.96 * sigma(garch_forecasts),
-                                          ymax = sarima_forecasts$mean + 1.96 * sigma(garch_forecasts)),
+# Plotting long forecast
+autoplot(merged_ts, series = "Observed prices") +
+  autolayer(rscale_long_pred_ts, series = "Predicted prices") +
+  geom_ribbon(data = esp_test_boxcox, aes(ymin = rscale_long_lower_ts,
+                                          ymax = rscale_long_upper_ts),
               alpha = 0.3) +
   ylab("EUR/MWh") +
-  ggtitle("One-Step SARIMA-GARCH Forecast with Upper and Lower Bounds") +
-  coord_cartesian(xlim = c(2023.6, 2024.4))
+  ggtitle("SARIMA(1,1,3)(8,1,0)[7]-GARCH(1,2) Forecast of Electricity Prices") +
+  coord_cartesian(xlim = c(2023.955, 2024.31), ylim = c(0, 240)) +
+  scale_color_manual(values = c("Observed prices" = "black",
+                                "Predicted prices" = "orangered1")) +
+  labs(color = "Legend")
 
 
-# One-step forecasting
+############################## One-step forecast ###############################
 n <- length(esp_boxcox)
 m <- length(esp_test_boxcox)
 
@@ -230,7 +257,8 @@ onestep_lower <- rep(0,m)
 for (i in 1:m) {
   current_data <- merged_boxcox_ts[-((n+i):(n+m))]
  
-  current_sarima_fit <- stats::arima(current_data, order = c(1, 1, 3), seasonal = list(order = c(8, 1, 0), periods = 7))
+  current_sarima_fit <- stats::arima(current_data, order = c(1, 1, 3),
+                                     seasonal = list(order = c(8, 1, 0), periods = 7))
   
   current_garch_fit <- ugarchforecast(ugarchfit(spec = garch_spec, data = current_sarima_fit$residuals),
                  n.ahead = 1)
@@ -241,7 +269,7 @@ for (i in 1:m) {
   
   onestep_lower[i] <- onestep_pred[i] - 1.96 * current_garch_fit@forecast$sigmaFor[1]
 }
-# Defines vectors into ts
+
 onestep_pred_ts <- ts(onestep_pred, start = 2024, frequency = 365)
 rscale_onestep_pred_ts <- InvBoxCox(onestep_pred_ts, lambda) - abs(1.5*min(esp_ts))
 
@@ -251,14 +279,17 @@ rscale_onestep_upper_ts <- InvBoxCox(onestep_upper_ts, lambda) - abs(1.5*min(esp
 onestep_lower_ts <- ts(onestep_lower, start = 2024, frequency = 365)
 rscale_onestep_lower_ts <- InvBoxCox(onestep_lower_ts, lambda) - abs(1.5*min(esp_ts))
 
-autoplot(merged_ts) +
-  autolayer(rscale_onestep_pred_ts) +
+autoplot(merged_ts, series = "Observed prices") +
+  autolayer(rscale_onestep_pred_ts, series = "Predicted prices") +
   geom_ribbon(data = esp_test_boxcox, aes(ymin = rscale_onestep_lower_ts,
                                           ymax = rscale_onestep_upper_ts),
               alpha = 0.3) +
   ylab("EUR/MWh") +
-  ggtitle("One-Step SARIMA-GARCH Forecast with Upper and Lower Bounds") +
-  coord_cartesian(xlim = c(2023.8, 2024.4))
+  ggtitle("One-Step SARIMA(1,1,3)(8,1,0)[7]-GARCH(1,2) Forecast of Electricity Prices") +
+  coord_cartesian(xlim = c(2023.955, 2024.31), ylim = c(0, 220)) +
+  scale_color_manual(values = c("Observed prices" = "black",
+                                "Predicted prices" = "orangered1")) +
+  labs(color = "Legend")
 
 
 # Count every observation outside the prediction interval.
@@ -271,12 +302,3 @@ for(i in seq_along(esp_test_ts)){
     indekscount <- append(indekscount, i)
   }
 }
-
-
-
-
-
-
-
-
-
